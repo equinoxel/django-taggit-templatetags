@@ -13,6 +13,7 @@ from taggit_templatetags import settings
 
 T_MAX = getattr(settings, 'TAGCLOUD_MAX', 4.0)
 T_MIN = getattr(settings, 'TAGCLOUD_MIN', 1.0)
+T_CAP = getattr(settings, 'TAGCLOUD_CAP', 200) # Cap to max 200 items by default
 
 register = template.Library()
 
@@ -68,20 +69,28 @@ def get_taglist(context, asvar, forvar=None):
     context[asvar] = queryset
     return ''
 
+
 @tag(register, [Constant('as'), Name(),
                 Optional([Constant('min_count'), Variable()]),
                 Optional([Constant('factor'), Variable()]),
                 Optional([Constant('for'), Variable()])])
 def get_tagcloud(context, asvar, min_count = None, factor = 100, forvar=None):
-    queryset = get_queryset(forvar)
+    queryset = get_queryset(forvar).order_by('-num_times')
     if min_count:
         queryset = queryset.filter(num_times__gte = min_count)
+
+    # Cap the results
+    #
+    queryset = queryset[:T_CAP]
+    
     num_times = queryset.values_list('num_times', flat=True)
     if(len(num_times) == 0):
         context[asvar] = queryset
         return ''
     weight_fun = get_weight_fun(T_MIN, T_MAX, min(num_times), max(num_times))
-    queryset = queryset.order_by('name')
+    queryset = list(queryset)
+    queryset.sort(cmp=_compare_tags)
+    #queryset = queryset.order_by('name')
     for tag in queryset:
         tag.weight = weight_fun(tag.num_times) * factor
     context[asvar] = queryset
