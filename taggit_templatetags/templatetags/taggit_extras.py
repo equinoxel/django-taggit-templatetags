@@ -17,6 +17,9 @@ T_CAP = getattr(settings, 'TAGCLOUD_CAP', 200) # Cap to max 200 items by default
 
 register = template.Library()
 
+def _compare_tags(a, b):
+    return cmp(a.slug, b.slug)
+
 def get_queryset(forvar=None):
     if None == forvar:
         # get all tags
